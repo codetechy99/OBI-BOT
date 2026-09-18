@@ -29,6 +29,7 @@ class Ledger:
         if user_id not in data:
             data[user_id] = {
                 "balance": 0.0,
+                "reserved": 0.0,
                 "history": []
             }
             self._save_db(data)
@@ -40,12 +41,77 @@ class Ledger:
             return 0.0
         return float(data[user_id].get("balance", 0.0))
 
+    def get_reserved(self, user_id: str) -> float:
+        data = self._load_db()
+        if user_id not in data:
+            return 0.0
+        return float(data[user_id].get("reserved", 0.0))
+
+    def get_available_balance(self, user_id: str) -> float:
+        data = self._load_db()
+        if user_id not in data:
+            return 0.0
+        balance = float(data[user_id].get("balance", 0.0))
+        reserved = float(data[user_id].get("reserved", 0.0))
+        return balance - reserved
+
+    def check_balance(self, user_id: str, amount: float) -> bool:
+        return self.get_available_balance(user_id) >= float(amount)
+
+    def reserve(self, user_id: str, amount: float) -> float:
+        if amount <= 0:
+            raise ValueError("Reserve amount must be positive")
+        data = self._load_db()
+        if user_id not in data:
+            data[user_id] = {"balance": 0.0, "reserved": 0.0, "history": []}
+
+        balance = float(data[user_id].get("balance", 0.0))
+        reserved = float(data[user_id].get("reserved", 0.0))
+        available = balance - reserved
+
+        if available < amount:
+            raise ValueError("Insufficient balance to reserve")
+
+        new_reserved = reserved + float(amount)
+        data[user_id]["reserved"] = new_reserved
+        record = {
+            "type": "reserve",
+            "amount": float(amount),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "balance": balance,
+            "reserved_after": new_reserved
+        }
+        data[user_id].setdefault("history", []).append(record)
+        self._save_db(data)
+        return new_reserved
+
+    def release(self, user_id: str, amount: float) -> float:
+        if amount <= 0:
+            raise ValueError("Release amount must be positive")
+        data = self._load_db()
+        if user_id not in data:
+            raise ValueError("User account does not exist")
+
+        reserved = float(data[user_id].get("reserved", 0.0))
+        new_reserved = max(0.0, reserved - float(amount))
+        data[user_id]["reserved"] = new_reserved
+        record = {
+            "type": "release",
+            "amount": float(amount),
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "balance": float(data[user_id].get("balance", 0.0)),
+            "reserved_after": new_reserved
+        }
+        data[user_id].setdefault("history", []).append(record)
+        self._save_db(data)
+        return new_reserved
+
     def deposit(self, user_id: str, amount: float, method: str = "MoMo") -> float:
         if amount <= 0:
             raise ValueError("Deposit amount must be positive")
         data = self._load_db()
         if user_id not in data:
-            data[user_id] = {"balance": 0.0, "history": []}
+            data[user_id] = {"balance": 0.0, "reserved": 0.0, "history": []}
 
         data[user_id]["balance"] += float(amount)
         record = {
@@ -55,7 +121,7 @@ class Ledger:
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "balance_after": data[user_id]["balance"]
         }
-        data[user_id]["history"].append(record)
+        data[user_id].setdefault("history", []).append(record)
         self._save_db(data)
         return data[user_id]["balance"]
 
@@ -67,7 +133,10 @@ class Ledger:
             raise ValueError("User account does not exist")
 
         current_balance = float(data[user_id].get("balance", 0.0))
-        if current_balance < amount:
+        reserved = float(data[user_id].get("reserved", 0.0))
+        available = current_balance - reserved
+
+        if available < amount:
             raise ValueError("Insufficient balance")
 
         data[user_id]["balance"] = current_balance - float(amount)
@@ -77,7 +146,7 @@ class Ledger:
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "balance_after": data[user_id]["balance"]
         }
-        data[user_id]["history"].append(record)
+        data[user_id].setdefault("history", []).append(record)
         self._save_db(data)
         return data[user_id]["balance"]
 
@@ -98,7 +167,7 @@ class Ledger:
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             "balance_after": new_balance
         }
-        data[user_id]["history"].append(record)
+        data[user_id].setdefault("history", []).append(record)
         self._save_db(data)
         return new_balance
 
