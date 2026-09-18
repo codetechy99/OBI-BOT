@@ -92,15 +92,83 @@ class Ledger:
             raise ValueError("Insufficient balance for negative PnL")
 
         data[user_id]["balance"] = new_balance
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
         record = {
             "type": "pnl",
+            "pnl": float(pnl),
             "amount": float(pnl),
-            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            "timestamp": now_iso,
             "balance_after": new_balance
         }
         data[user_id]["history"].append(record)
         self._save_db(data)
         return new_balance
+
+    def record_trade(self, user_id: str, side: str, price: float, qty: float, pnl: float) -> float:
+        data = self._load_db()
+        if user_id not in data:
+            data[user_id] = {"balance": 0.0, "history": []}
+
+        current_balance = float(data[user_id].get("balance", 0.0))
+        new_balance = current_balance + float(pnl)
+        if new_balance < 0:
+            raise ValueError("Insufficient balance for negative trade PnL")
+
+        data[user_id]["balance"] = new_balance
+        now_iso = datetime.datetime.now(datetime.timezone.utc).isoformat()
+        record = {
+            "type": "trade",
+            "date": now_iso,
+            "timestamp": now_iso,
+            "side": side.upper(),
+            "price": float(price),
+            "qty": float(qty),
+            "pnl": float(pnl),
+            "amount": float(pnl),
+            "balance_after": new_balance
+        }
+        data[user_id]["history"].append(record)
+        self._save_db(data)
+        return new_balance
+
+    def get_pnl(self, user_id: str, date: str = None) -> float:
+        data = self._load_db()
+        if user_id not in data:
+            return 0.0
+
+        target_date = date or datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d")
+        history = data[user_id].get("history", [])
+
+        total_pnl = 0.0
+        for entry in history:
+            entry_type = entry.get("type")
+            if entry_type in ("pnl", "trade"):
+                ts = entry.get("timestamp") or entry.get("date", "")
+                if ts.startswith(target_date):
+                    if "pnl" in entry:
+                        total_pnl += float(entry["pnl"])
+                    elif "amount" in entry:
+                        total_pnl += float(entry["amount"])
+        return total_pnl
+
+    def get_trades(self, user_id: str) -> list:
+        data = self._load_db()
+        if user_id not in data:
+            return []
+
+        history = data[user_id].get("history", [])
+        trades = []
+        for entry in history:
+            if entry.get("type") in ("trade", "pnl"):
+                trades.append({
+                    "date": entry.get("date") or entry.get("timestamp", ""),
+                    "side": entry.get("side", "N/A"),
+                    "price": float(entry.get("price", 0.0)),
+                    "qty": float(entry.get("qty", 0.0)),
+                    "pnl": float(entry.get("pnl", entry.get("amount", 0.0))),
+                    "balance_after": float(entry.get("balance_after", 0.0))
+                })
+        return trades
 
     def get_history(self, user_id: str) -> list:
         data = self._load_db()
