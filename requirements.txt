@@ -1,3 +1,7 @@
 fastapi
 uvicorn
 pydantic
+websockets
+jinja2
+pytest
+httpx
