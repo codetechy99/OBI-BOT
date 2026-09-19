@@ -20,6 +20,13 @@ OBI-BOT is a custom Direct Market Access (DMA) application built without third-p
      - `POST /deposit` (`{"user_id": "...", "amount": 100, "method": "MoMo"}`)
      - `POST /withdraw` (`{"user_id": "...", "amount": 50}`)
 
+## Live Server
+Connected to Render. Auto-deploy on push to main.
+- Live: https://obi-bot.onrender.com
+- Dashboard: /dashboard
+- Health: /health
+- To edit after deploy: just push to GitHub via Jules, Render auto-redeploys in ~2min. No need to touch Render.
+
 ## Getting Started
 
 ### Prerequisites

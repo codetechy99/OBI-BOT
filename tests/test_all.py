@@ -1,5 +1,5 @@
-import pytest
 import os
+import pytest
 from fastapi.testclient import TestClient
 
 from src.money.ledger import Ledger
@@ -7,6 +7,7 @@ from src.market_data.obi import get_imbalance, calculate_obi_from_orderbook
 from src.app.main import app
 
 TEST_DB = "test_db.json"
+
 
 @pytest.fixture
 def ledger():
@@ -16,6 +17,7 @@ def ledger():
     yield l
     if os.path.exists(TEST_DB):
         os.remove(TEST_DB)
+
 
 def test_ledger_operations(ledger):
     assert ledger.get_balance("user1") == 0.0
@@ -75,6 +77,22 @@ def test_fastapi_endpoints():
         os.remove("db.json")
 
     client = TestClient(app)
+
+    # Health check
+    res = client.get("/health")
+    assert res.status_code == 200
+    assert res.json() == {"status": "ok"}
+
+    # Root
+    res = client.get("/")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+
+    # Dashboard
+    res = client.get("/dashboard")
+    assert res.status_code == 200
+    assert res.json()["status"] == "ok"
+    assert "symbols" in res.json()
 
     # Get balance
     res = client.get("/balance/user2")
