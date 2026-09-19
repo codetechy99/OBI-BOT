@@ -1,10 +1,25 @@
+import asyncio
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import Optional
 
 from src.money.ledger import Ledger
+from src.market_data.orderbook import orderbook_manager
 
-app = FastAPI(title="OBI-BOT")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    task = asyncio.create_task(orderbook_manager.start())
+    yield
+    task.cancel()
+    try:
+        await task
+    except asyncio.CancelledError:
+        pass
+
+
+app = FastAPI(title="OBI-BOT", lifespan=lifespan)
 ledger = Ledger("db.json")
 
 
@@ -17,6 +32,11 @@ class DepositRequest(BaseModel):
 class WithdrawRequest(BaseModel):
     user_id: str = Field(..., description="User ID")
     amount: float = Field(..., gt=0, description="Amount to withdraw, must be > 0")
+
+
+@app.get("/api/dashboard/status")
+def get_dashboard_status():
+    return orderbook_manager.get_status()
 
 
 @app.get("/balance/{user_id}")

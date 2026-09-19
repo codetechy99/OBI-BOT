@@ -1,9 +1,11 @@
 import pytest
 import os
+import json
 from fastapi.testclient import TestClient
 
 from src.money.ledger import Ledger
 from src.market_data.obi import get_imbalance, calculate_obi_from_orderbook
+from src.market_data.orderbook import OrderBookManager, orderbook_manager
 from src.app.main import app
 
 TEST_DB = "test_db.json"
@@ -70,11 +72,54 @@ def test_obi_calculations():
     assert calculate_obi_from_orderbook({}) == 0.0
 
 
+def test_orderbook_manager_process_message():
+    mgr = OrderBookManager()
+
+    # Combined stream message format for BTCUSDT
+    msg_btc = {
+        "stream": "btcusdt@depth20@100ms",
+        "data": {
+            "bids": [["80000", "10"], ["79900", "20"]],
+            "asks": [["80100", "5"], ["80200", "5"]]
+        }
+    }
+    mgr.process_message(json.dumps(msg_btc))
+    btc_state = mgr.state["BTCUSDT"]
+    # bids = 30, asks = 10, OBI = (30 - 10) / 40 = 0.5
+    assert btc_state["last_obi"] == 0.5
+    assert btc_state["bids"] == 30.0
+    assert btc_state["asks"] == 10.0
+    assert btc_state["state"] == "NEUTRAL"
+
+    # Combined stream message format for ETHUSDT
+    msg_eth = {
+        "stream": "ethusdt@depth20@100ms",
+        "data": {
+            "bids": [["2000", "5"]],
+            "asks": [["2010", "15"]]
+        }
+    }
+    mgr.process_message(json.dumps(msg_eth))
+    eth_state = mgr.state["ETHUSDT"]
+    # bids = 5, asks = 15, OBI = (5 - 15) / 20 = -0.5
+    assert eth_state["last_obi"] == -0.5
+    assert eth_state["bids"] == 5.0
+    assert eth_state["asks"] == 15.0
+
+
 def test_fastapi_endpoints():
     if os.path.exists("db.json"):
         os.remove("db.json")
 
     client = TestClient(app)
+
+    # Dashboard status
+    res = client.get("/api/dashboard/status")
+    assert res.status_code == 200
+    data = res.json()
+    assert "status" in data
+    assert "BTCUSDT" in data
+    assert "ETHUSDT" in data
 
     # Get balance
     res = client.get("/balance/user2")

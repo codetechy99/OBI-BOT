@@ -1,6 +1,6 @@
-def get_imbalance(bids: list, asks: list) -> float:
+def get_imbalance(bids: list, asks: list, depth: int = 3) -> float:
     """
-    Calculate Order Book Imbalance (OBI) using top 3 bids and asks.
+    Calculate Order Book Imbalance (OBI) using top `depth` bids and asks.
     bids: list of [price, volume] or dicts with 'volume' / 'qty' or floats/tuples.
     asks: list of [price, volume] or dicts with 'volume' / 'qty' or floats/tuples.
     Formula: I = (V_bid - V_ask) / (V_bid + V_ask)
@@ -26,8 +26,8 @@ def get_imbalance(bids: list, asks: list) -> float:
                 return float(level['amount'])
         return 0.0
 
-    top_bids = bids[:3] if bids else []
-    top_asks = asks[:3] if asks else []
+    top_bids = bids[:depth] if (bids and depth) else bids or []
+    top_asks = asks[:depth] if (asks and depth) else asks or []
 
     v_bid = sum(extract_volume(b) for b in top_bids)
     v_ask = sum(extract_volume(a) for a in top_asks)
@@ -39,7 +39,7 @@ def get_imbalance(bids: list, asks: list) -> float:
     return (v_bid - v_ask) / total_volume
 
 
-def calculate_obi_from_orderbook(orderbook: dict) -> float:
+def calculate_obi_from_orderbook(orderbook: dict, depth: int = 3) -> float:
     """
     Extracts bids and asks from orderbook dict and returns imbalance I.
     orderbook dict format: {'bids': [...], 'asks': [...]}
@@ -50,4 +50,4 @@ def calculate_obi_from_orderbook(orderbook: dict) -> float:
     bids = orderbook.get('bids', [])
     asks = orderbook.get('asks', [])
 
-    return get_imbalance(bids, asks)
+    return get_imbalance(bids, asks, depth=depth)
