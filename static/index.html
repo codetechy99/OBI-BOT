@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OBI-BOT Dashboard</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            background-color: #121214;
+            color: #e0e0e0;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Banner */
+        .banner {
+            background-color: #d9381e;
+            color: #ffffff;
+            font-weight: bold;
+            font-size: 1.3rem;
+            text-align: center;
+            padding: 12px 10px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 20px auto;
+            padding: 0 15px;
+        }
+
+        /* Splash Screen overlay */
+        #splash-screen {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(18, 18, 20, 0.95);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 9999;
+        }
+        .splash-box {
+            background: #1e1e24;
+            border: 1px solid #333;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 450px;
+        }
+
+        .card {
+            background: #1e1e24;
+            border: 1px solid #2a2a32;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+
+        h2 {
+            margin-top: 0;
+            color: #4da6ff;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        button {
+            padding: 10px 15px;
+            border-radius: 4px;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        button:disabled, .btn-disabled {
+            background-color: #444;
+            color: #888;
+            cursor: not-allowed;
+            border: 1px solid #555;
+        }
+
+        .btn-primary {
+            background-color: #2563eb;
+            color: white;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-size: 0.85rem;
+            font-weight: bold;
+        }
+        .badge-ok { background: #166534; color: #86efac; }
+        .badge-stale { background: #9a3412; color: #fdba74; }
+        .badge-simulated { background: #374151; color: #9ca3af; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+        th, td {
+            text-align: left;
+            padding: 8px;
+            border-bottom: 1px solid #2a2a32;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Splash Screen (Non-blocking backend) -->
+    <div id="splash-screen">
+        <div class="splash-box">
+            <h2>OBI-BOT Engine Starting</h2>
+            <p>Initializing orderbook streams & signal persistence checks...</p>
+            <p>Backend runs independently in startup event.</p>
+            <p>Closing splash in <span id="splash-timer">10</span>s...</p>
+            <button onclick="dismissSplash()" class="btn-primary">Skip / Enter Dashboard</button>
+        </div>
+    </div>
+
+    <!-- Big Banner -->
+    <div class="banner">
+        ⚠️ PAPER MODE - SIMULATED - NO REAL MONEY ⚠️
+    </div>
+
+    <div class="container">
+        <div class="grid">
+            <!-- Simulated Wallet Ledger Card -->
+            <div class="card">
+                <h2>Simulated Wallet Ledger <span class="badge badge-simulated">SIMULATED</span></h2>
+                <p>User ID: <strong id="user-id">user1</strong></p>
+                <p>Current Balance: <strong id="user-balance">$0.00</strong></p>
+                <hr style="border-color: #2a2a32;">
+                <div>
+                    <h3>Deposit (SIMULATED)</h3>
+                    <input type="number" id="deposit-amt" placeholder="Amount" disabled style="padding: 8px; background: #2a2a32; color: #888; border: 1px solid #444;">
+                    <button disabled class="btn-disabled">Deposit (SIMULATED DISABLED)</button>
+                </div>
+                <div style="margin-top: 15px;">
+                    <h3>Withdraw (SIMULATED)</h3>
+                    <input type="number" id="withdraw-amt" placeholder="Amount" disabled style="padding: 8px; background: #2a2a32; color: #888; border: 1px solid #444;">
+                    <button disabled class="btn-disabled">Withdraw (SIMULATED DISABLED)</button>
+                </div>
+            </div>
+
+            <!-- Market Data & Symbol Status -->
+            <div class="card">
+                <h2>Market Data & Symbol Status</h2>
+                <p>Default Symbols: <strong>BTCUSDT, ETHUSDT</strong></p>
+                <p><small>* Note: Binance XAUUSDT is non-existent/synthetic on WS streams and has been removed.</small></p>
+                <div id="symbol-status-list">
+                    Loading symbol status...
+                </div>
+            </div>
+        </div>
+
+        <!-- Live Signals -->
+        <div class="card">
+            <h2>Live Orderbook Signals (Signal Only - No Auto-Trade)</h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Symbol</th>
+                        <th>Side</th>
+                        <th>OBI</th>
+                        <th>Spread</th>
+                        <th>Mid Price</th>
+                        <th>Expires At</th>
+                    </tr>
+                </thead>
+                <tbody id="signals-tbody">
+                    <tr><td colspan="7">No active signals generated yet.</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paper Trading Positions -->
+        <div class="card">
+            <h2>Paper Trading Positions <span class="badge badge-simulated">SIMULATED</span></h2>
+            <table>
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Symbol</th>
+                        <th>Side</th>
+                        <th>Entry Price</th>
+                        <th>Size</th>
+                        <th>Status</th>
+                        <th>PnL</th>
+                    </tr>
+                </thead>
+                <tbody id="positions-tbody">
+                    <tr><td colspan="7">No paper positions open.</td></tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        // Splash screen countdown
+        let timeLeft = 10;
+        const splashTimer = document.getElementById("splash-timer");
+        const splashInterval = setInterval(() => {
+            timeLeft--;
+            if (splashTimer) splashTimer.innerText = timeLeft;
+            if (timeLeft <= 0) {
+                dismissSplash();
+            }
+        }, 1000);
+
+        function dismissSplash() {
+            clearInterval(splashInterval);
+            const splash = document.getElementById("splash-screen");
+            if (splash) splash.style.display = "none";
+        }
+
+        async function fetchStatus() {
+            try {
+                const res = await fetch("/status");
+                const data = await res.json();
+                const container = document.getElementById("symbol-status-list");
+                if (data.symbol_status) {
+                    let html = "<ul>";
+                    for (const [sym, status] of Object.entries(data.symbol_status)) {
+                        const badgeClass = status === 'OK' ? 'badge-ok' : 'badge-stale';
+                        html += `<li><strong>${sym}</strong>: <span class="badge ${badgeClass}">${status}</span></li>`;
+                    }
+                    html += "</ul>";
+                    container.innerHTML = html;
+                }
+            } catch (e) {
+                console.error("Error fetching status:", e);
+            }
+        }
+
+        async function fetchBalance() {
+            try {
+                const res = await fetch("/balance/user1");
+                const data = await res.json();
+                document.getElementById("user-balance").innerText = `$${data.balance.toFixed(2)}`;
+            } catch (e) {
+                console.error("Error fetching balance:", e);
+            }
+        }
+
+        fetchStatus();
+        fetchBalance();
+        setInterval(fetchStatus, 3000);
+        setInterval(fetchBalance, 5000);
+    </script>
+</body>
+</html>
