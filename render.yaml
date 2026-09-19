@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: obi-bot
+    env: docker
+    plan: free
+    autoDeploy: true
+    healthCheckPath: /health
+    envVars:
+      - key: SYMBOLS
+        value: EURUSDT,GBPUSDT,XAUUSDT,BTCUSDT,ETHUSDT
+      - key: TRADING_MODE
+        value: paper
+      - key: BINANCE_FUTURES_WS
+        value: wss://fstream.binance.com/stream
+      - key: PORT
+        value: 8000
