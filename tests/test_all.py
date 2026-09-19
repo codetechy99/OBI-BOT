@@ -4,7 +4,7 @@ from fastapi.testclient import TestClient
 
 from src.money.ledger import Ledger
 from src.market_data.obi import get_imbalance, calculate_obi_from_orderbook
-from src.app.main import app
+from src.app.main import app, calc_obi
 
 TEST_DB = "test_db.json"
 
@@ -70,31 +70,59 @@ def test_obi_calculations():
     assert calculate_obi_from_orderbook({}) == 0.0
 
 
-def test_fastapi_endpoints():
-    if os.path.exists("db.json"):
-        os.remove("db.json")
+def test_main_calc_obi():
+    bids = [["100.0", "10.0"], ["99.0", "20.0"]]
+    asks = [["101.0", "5.0"], ["102.0", "5.0"]]
+    obi, b_vol, a_vol = calc_obi(bids, asks)
+    assert abs(b_vol - 30.0) < 1e-6
+    assert abs(a_vol - 10.0) < 1e-6
+    assert abs(obi - 0.5) < 1e-6
 
+    # Zero total
+    obi_zero, b_zero, a_zero = calc_obi([], [])
+    assert obi_zero == 0
+    assert b_zero == 0
+    assert a_zero == 0
+
+
+def test_fastapi_endpoints():
     client = TestClient(app)
 
-    # Get balance
-    res = client.get("/balance/user2")
+    # Root
+    res = client.get("/")
     assert res.status_code == 200
-    assert res.json() == {"user_id": "user2", "balance": 0.0}
+    assert res.json()["status"] == "OBI-BOT LIVE"
 
-    # Deposit
-    res = client.post("/deposit", json={"user_id": "user2", "amount": 100.0, "method": "MoMo"})
+    # Health
+    res = client.get("/health")
     assert res.status_code == 200
-    assert res.json()["balance"] == 100.0
+    assert res.json()["status"] == "ok"
 
-    # Withdraw
-    res = client.post("/withdraw", json={"user_id": "user2", "amount": 40.0})
+    # OBI API
+    res = client.get("/api/obi")
     assert res.status_code == 200
-    assert res.json()["balance"] == 60.0
+    data = res.json()
+    assert "BTCUSDT" in data
+    assert "ETHUSDT" in data
+    assert "XAUUSDT" in data
 
-    # Insufficient withdraw
-    res = client.post("/withdraw", json={"user_id": "user2", "amount": 1000.0})
-    assert res.status_code == 400
-    assert res.json()["detail"] == "Insufficient balance"
+    # Trades API
+    res = client.get("/api/trades")
+    assert res.status_code == 200
+    assert isinstance(res.json(), list)
 
-    if os.path.exists("db.json"):
-        os.remove("db.json")
+    # Balance API
+    res = client.get("/api/balance")
+    assert res.status_code == 200
+    assert res.json()["balance"] == 50000
+
+    # Dashboard HTML
+    res = client.get("/dashboard")
+    assert res.status_code == 200
+    assert "OBI-BOT" in res.text
+    assert "/static/icon.png" in res.text
+    assert "splash" in res.text
+
+    # Static Icon
+    res = client.get("/static/icon.png")
+    assert res.status_code == 200
