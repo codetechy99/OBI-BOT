@@ -1,17 +1,19 @@
 import asyncio
 import json
 import logging
-from typing import Dict, Any, Optional
+import time
+from typing import Dict, Any, Optional, List
 from urllib.parse import urlparse
 import httpx
 import websockets
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("obi_bot")
 
 WS_ENDPOINTS = [
     "wss://data-stream.binance.vision/ws/btcusdt@depth20@100ms/ethusdt@depth20@100ms",
     "wss://stream.binance.com:9443/ws",
     "wss://stream.binance.us:9443/ws",
+    "wss://data-stream.binance.vision/ws/btcusdt@depth@100ms",
 ]
 
 REST_BASE_URLS = [
@@ -46,25 +48,134 @@ def calculate_obi(bids: list, asks: list, limit: int = 20) -> float:
     return (v_bid - v_ask) / total_vol
 
 
+class OrderBookState:
+    def __init__(self, symbol: str):
+        self.symbol = symbol
+        self.bids_dict: Dict[float, float] = {}  # price -> qty
+        self.asks_dict: Dict[float, float] = {}  # price -> qty
+        self.best_bid: float = 0.0
+        self.best_ask: float = 0.0
+        self.last_price: float = 0.0
+        self.obi: float = 0.0
+        self.updated_at: float = 0.0
+
+    def update_snapshot(self, bids: List, asks: List):
+        self.bids_dict.clear()
+        self.asks_dict.clear()
+        for b in bids:
+            try:
+                p, q = float(b[0]), float(b[1])
+                if q > 0:
+                    self.bids_dict[p] = q
+            except (IndexError, ValueError, TypeError):
+                pass
+        for a in asks:
+            try:
+                p, q = float(a[0]), float(a[1])
+                if q > 0:
+                    self.asks_dict[p] = q
+            except (IndexError, ValueError, TypeError):
+                pass
+        self._recalculate()
+
+    def update_diff(self, bids_diff: List, asks_diff: List):
+        for b in bids_diff:
+            try:
+                p, q = float(b[0]), float(b[1])
+                if q == 0:
+                    self.bids_dict.pop(p, None)
+                else:
+                    self.bids_dict[p] = q
+            except (IndexError, ValueError, TypeError):
+                pass
+        for a in asks_diff:
+            try:
+                p, q = float(a[0]), float(a[1])
+                if q == 0:
+                    self.asks_dict.pop(p, None)
+                else:
+                    self.asks_dict[p] = q
+            except (IndexError, ValueError, TypeError):
+                pass
+        self._recalculate()
+
+    def _recalculate(self):
+        sorted_bids = sorted(self.bids_dict.items(), key=lambda x: x[0], reverse=True)
+        sorted_asks = sorted(self.asks_dict.items(), key=lambda x: x[0])
+
+        self.best_bid = sorted_bids[0][0] if sorted_bids else 0.0
+        self.best_ask = sorted_asks[0][0] if sorted_asks else 0.0
+
+        if self.best_bid > 0 and self.best_ask > 0:
+            self.last_price = (self.best_bid + self.best_ask) / 2.0
+        elif self.best_bid > 0:
+            self.last_price = self.best_bid
+        elif self.best_ask > 0:
+            self.last_price = self.best_ask
+
+        top_bids = [[p, q] for p, q in sorted_bids[:20]]
+        top_asks = [[p, q] for p, q in sorted_asks[:20]]
+        self.obi = calculate_obi(top_bids, top_asks, limit=20)
+        self.updated_at = time.time()
+
+    def get_snapshot(self) -> Dict[str, Any]:
+        sorted_bids = sorted(self.bids_dict.items(), key=lambda x: x[0], reverse=True)[:10]
+        sorted_asks = sorted(self.asks_dict.items(), key=lambda x: x[0])[:10]
+
+        top_bids_list = [[float(p), float(q)] for p, q in sorted_bids]
+        top_asks_list = [[float(p), float(q)] for p, q in sorted_asks]
+
+        spread = (self.best_ask - self.best_bid) if (self.best_ask > 0 and self.best_bid > 0) else 0.0
+
+        return {
+            "symbol": self.symbol,
+            "best_bid": round(self.best_bid, 2),
+            "best_ask": round(self.best_ask, 2),
+            "price": round(self.last_price, 2),
+            "spread": round(spread, 2),
+            "obi": self.obi,
+            "obi_percent": round(self.obi * 100, 1),
+            "bids": top_bids_list,
+            "asks": top_asks_list,
+            "updated_at": self.updated_at,
+        }
+
+
 class OrderBookManager:
     def __init__(self):
-        self.obi_data: Dict[str, float] = {
-            "BTCUSDT": 0.0,
-            "ETHUSDT": 0.0,
+        self.books: Dict[str, OrderBookState] = {
+            "BTCUSDT": OrderBookState("BTCUSDT"),
+            "ETHUSDT": OrderBookState("ETHUSDT"),
         }
         self.connected_endpoint: Optional[str] = None
         self.is_running: bool = False
         self._task: Optional[asyncio.Task] = None
+        self._log_counter: int = 0
+
+    @property
+    def obi_data(self) -> Dict[str, float]:
+        return {
+            "BTCUSDT": self.books["BTCUSDT"].obi,
+            "ETHUSDT": self.books["ETHUSDT"].obi,
+        }
+
+    def get_market_snapshot(self, symbol: str = "BTCUSDT") -> Dict[str, Any]:
+        if symbol not in self.books:
+            symbol = "BTCUSDT"
+        return self.books[symbol].get_snapshot()
 
     def get_status(self) -> Dict[str, Any]:
-        btc_obi = self.obi_data.get("BTCUSDT", 0.0)
-        eth_obi = self.obi_data.get("ETHUSDT", 0.0)
-        overall_obi = btc_obi if btc_obi != 0.0 else eth_obi
+        btc_book = self.books["BTCUSDT"]
+        eth_book = self.books["ETHUSDT"]
+        overall_obi = btc_book.obi if btc_book.obi != 0.0 else eth_book.obi
         return {
             "status": "ok",
             "obi": overall_obi,
-            "btcusdt_obi": btc_obi,
-            "ethusdt_obi": eth_obi,
+            "btcusdt_obi": btc_book.obi,
+            "ethusdt_obi": eth_book.obi,
+            "btcusdt_price": round(btc_book.last_price, 2),
+            "btcusdt_best_bid": round(btc_book.best_bid, 2),
+            "btcusdt_best_ask": round(btc_book.best_ask, 2),
             "connected_endpoint": self.connected_endpoint,
         }
 
@@ -109,7 +220,7 @@ class OrderBookManager:
         try:
             async with websockets.connect(endpoint, ping_interval=20, ping_timeout=20) as ws:
                 self.connected_endpoint = host
-                msg_log = f"Connected to {host}"
+                msg_log = f"Connected to Binance OrderBook Stream at {host} ({endpoint})"
                 logger.info(msg_log)
                 print(msg_log)
 
@@ -120,6 +231,9 @@ class OrderBookManager:
                         "id": 1,
                     }
                     await ws.send(json.dumps(sub_msg))
+
+                # Fetch initial REST snapshot for BTCUSDT if empty to seed orderbook
+                await self._seed_initial_snapshots()
 
                 while self.is_running:
                     try:
@@ -132,6 +246,23 @@ class OrderBookManager:
             logger.warning(f"WebSocket error on {endpoint}: {e}")
             return False
 
+    async def _seed_initial_snapshots(self):
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            for symbol in ["BTCUSDT", "ETHUSDT"]:
+                for base_url in REST_BASE_URLS:
+                    try:
+                        url = f"{base_url}/api/v3/depth?symbol={symbol}&limit=20"
+                        resp = await client.get(url)
+                        if resp.status_code == 200:
+                            data = resp.json()
+                            bids = data.get("bids", [])
+                            asks = data.get("asks", [])
+                            self.books[symbol].update_snapshot(bids, asks)
+                            logger.info(f"Seeded snapshot for {symbol}: Bid={self.books[symbol].best_bid}, Ask={self.books[symbol].best_ask}, OBI={self.books[symbol].obi:.4f}")
+                            break
+                    except Exception as e:
+                        logger.debug(f"Snapshot seed failed for {symbol} on {base_url}: {e}")
+
     def _process_ws_message(self, msg: str):
         try:
             data = json.loads(msg)
@@ -142,33 +273,47 @@ class OrderBookManager:
             return
 
         stream = data.get("stream", "")
-        bids = []
-        asks = []
-        symbol = None
+        payload = data.get("data", data)
 
+        symbol = None
         if stream:
             symbol_raw = stream.split("@")[0].upper()
-            if symbol_raw in ("BTCUSDT", "ETHUSDT"):
+            if symbol_raw in self.books:
                 symbol = symbol_raw
-            payload = data.get("data", {})
-            bids = payload.get("bids", [])
-            asks = payload.get("asks", [])
-        else:
-            bids = data.get("bids", [])
-            asks = data.get("asks", [])
-            s = data.get("s", "").upper()
-            if s in ("BTCUSDT", "ETHUSDT"):
+        elif "s" in payload:
+            s = payload["s"].upper()
+            if s in self.books:
                 symbol = s
-            elif bids:
-                try:
-                    top_bid_price = float(bids[0][0])
-                    symbol = "BTCUSDT" if top_bid_price > 10000 else "ETHUSDT"
-                except (IndexError, ValueError, TypeError):
-                    pass
 
-        if symbol and (bids or asks):
-            obi_val = calculate_obi(bids, asks, limit=20)
-            self.obi_data[symbol] = obi_val
+        # Check fields
+        if "bids" in payload and "asks" in payload:
+            if not symbol:
+                bids = payload.get("bids", [])
+                if bids:
+                    try:
+                        p = float(bids[0][0])
+                        symbol = "BTCUSDT" if p > 10000 else "ETHUSDT"
+                    except Exception:
+                        symbol = "BTCUSDT"
+            if symbol and symbol in self.books:
+                self.books[symbol].update_snapshot(payload["bids"], payload["asks"])
+        elif "b" in payload or "a" in payload:
+            if not symbol:
+                symbol = "BTCUSDT"
+            if symbol in self.books:
+                bids_diff = payload.get("b", [])
+                asks_diff = payload.get("a", [])
+                self.books[symbol].update_diff(bids_diff, asks_diff)
+
+        # Log orderbook update every 50 packets (~5s) to Render logs
+        self._log_counter += 1
+        if self._log_counter % 50 == 0:
+            btc_snap = self.books["BTCUSDT"].get_snapshot()
+            logger.info(
+                f"[ORDERBOOK UPDATE] BTCUSDT Price: ${btc_snap['price']} | "
+                f"Bid: ${btc_snap['best_bid']} | Ask: ${btc_snap['best_ask']} | "
+                f"Spread: ${btc_snap['spread']} | OBI: {btc_snap['obi']:+.4f} ({btc_snap['obi_percent']:+.1f}%)"
+            )
 
     async def _run_rest_fallback(self):
         self.connected_endpoint = "REST Fallback"
@@ -183,12 +328,20 @@ class OrderBookManager:
                                 data = resp.json()
                                 bids = data.get("bids", [])
                                 asks = data.get("asks", [])
-                                obi_val = calculate_obi(bids, asks, limit=20)
-                                self.obi_data[symbol] = obi_val
+                                self.books[symbol].update_snapshot(bids, asks)
                                 break
                         except Exception as e:
                             logger.warning(f"REST fetch failed for {symbol} on {base_url}: {e}")
-                await asyncio.sleep(2)
+
+                self._log_counter += 1
+                if self._log_counter % 5 == 0:
+                    btc_snap = self.books["BTCUSDT"].get_snapshot()
+                    logger.info(
+                        f"[REST ORDERBOOK] BTCUSDT Price: ${btc_snap['price']} | "
+                        f"Bid: ${btc_snap['best_bid']} | Ask: ${btc_snap['best_ask']} | "
+                        f"OBI: {btc_snap['obi']:+.4f}"
+                    )
+                await asyncio.sleep(0.5)
 
 
 orderbook_manager = OrderBookManager()
