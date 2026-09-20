@@ -1,11 +1,57 @@
-from fastapi import FastAPI, HTTPException, status
-from pydantic import BaseModel, Field
+import os
+from contextlib import asynccontextmanager
 from typing import Optional
 
-from src.money.ledger import Ledger
+from fastapi import FastAPI, HTTPException, status
+from fastapi.responses import RedirectResponse, FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel, Field
 
-app = FastAPI(title="OBI-BOT")
+from src.money.ledger import Ledger
+from src.market_data.orderbook import orderbook_manager
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    await orderbook_manager.start()
+    yield
+    await orderbook_manager.stop()
+
+
+app = FastAPI(title="OBI-BOT", lifespan=lifespan)
 ledger = Ledger("db.json")
+
+if os.path.exists("static"):
+    app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.get("/")
+def root():
+    return RedirectResponse("/dashboard")
+
+
+@app.get("/favicon.ico")
+def favicon():
+    if os.path.exists("static/icon.png"):
+        return FileResponse("static/icon.png")
+    return FileResponse("static/dashboard.html") if os.path.exists("static/dashboard.html") else HTMLResponse("OK")
+
+
+@app.get("/dashboard")
+def dashboard():
+    if os.path.exists("static/dashboard.html"):
+        return FileResponse("static/dashboard.html")
+    return HTMLResponse("<h1>OBI Dashboard</h1>")
+
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+
+@app.get("/api/dashboard/status")
+def get_dashboard_status():
+    return orderbook_manager.get_status()
 
 
 class DepositRequest(BaseModel):
