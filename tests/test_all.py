@@ -96,5 +96,26 @@ def test_fastapi_endpoints():
     assert res.status_code == 400
     assert res.json()["detail"] == "Insufficient balance"
 
+    # Test bot endpoints
+    r_status = client.get("/api/bot/status")
+    assert r_status.status_code == 200
+    assert "is_running" in r_status.json()
+
+    r_start = client.post("/api/bot/start", json={"mode": "demo", "lot_size": 0.1, "threshold": 0.35})
+    assert r_start.status_code == 200
+    assert r_start.json()["status"] == "success"
+
+    r_stop = client.post("/api/bot/stop", json={"close_positions": True})
+    assert r_stop.status_code == 200
+    assert r_stop.json()["status"] == "success"
+
+    r_logs = client.get("/api/bot/logs")
+    assert r_logs.status_code == 200
+    assert "logs" in r_logs.json()
+
+    r_reset = client.post("/api/bot/reset_demo")
+    assert r_reset.status_code == 200
+    assert r_reset.json()["status"] == "success"
+
     if os.path.exists("db.json"):
         os.remove("db.json")

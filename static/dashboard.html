@@ -1,455 +1,902 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OBI-BOT Live Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>OBI-BOT Pro | MT5 Mobile Terminal</title>
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" href="/static/icon-192.png">
+    <meta name="theme-color" content="#121212">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mt5bg: '#121212',
+                        mt5card: '#1A1D24',
+                        mt5border: '#2A2E39',
+                        binanceGold: '#FCD535',
+                        binanceGreen: '#0ECB81',
+                        binanceRed: '#F6465D',
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Lightweight Charts CDN -->
+    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+
     <style>
-        :root {
-            --bg-color: #121418;
-            --card-bg: #1e222d;
-            --border-color: #2a2e39;
-            --text-color: #d1d4dc;
-            --accent-green: #089981;
-            --accent-red: #f23645;
-            --accent-blue: #2962ff;
-        }
-
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background-color: var(--bg-color);
-            color: var(--text-color);
-            margin: 0;
-            padding: 20px;
-        }
-
-        .header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border-color);
-            padding-bottom: 15px;
-            margin-bottom: 20px;
-        }
-
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            color: #ffffff;
-        }
-
-        .grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .card {
-            background-color: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 20px;
-        }
-
-        .card h2 {
-            margin-top: 0;
-            font-size: 16px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #787b86;
-        }
-
-        .value {
-            font-size: 28px;
-            font-weight: bold;
-            color: #ffffff;
-        }
-
-        .price-row {
-            display: flex;
-            justify-content: space-between;
-            margin-top: 10px;
-        }
-
-        .bid { color: var(--accent-green); font-weight: bold; }
-        .ask { color: var(--accent-red); font-weight: bold; }
-
-        /* OBI Meter Bar */
-        .obi-meter-container {
-            margin-top: 15px;
-        }
-
-        .obi-meter-bg {
-            background-color: #2a2e39;
-            height: 20px;
-            border-radius: 10px;
-            position: relative;
+            background-color: #121212;
+            color: #EAECSF;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
             overflow: hidden;
+            height: 100vh;
         }
 
-        .obi-meter-fill {
-            height: 100%;
-            width: 50%;
-            background-color: var(--accent-blue);
-            transition: width 0.2s ease-out, background-color 0.2s ease-out;
+        .pulse-glow-green {
+            box-shadow: 0 0 25px rgba(14, 203, 129, 0.6);
+            animation: pulse-green 1.5s infinite;
         }
 
-        .obi-scale {
-            display: flex;
-            justify-content: space-between;
-            font-size: 12px;
-            color: #787b86;
-            margin-top: 5px;
+        .pulse-glow-red {
+            box-shadow: 0 0 25px rgba(246, 70, 93, 0.6);
+            animation: pulse-red 1.5s infinite;
         }
 
-        .chart-container {
-            position: relative;
-            height: 250px;
-            width: 100%;
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 10px rgba(14, 203, 129, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(14, 203, 129, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(14, 203, 129, 0.4); }
         }
 
-        /* Form styling */
-        .form-group {
-            margin-bottom: 15px;
+        @keyframes pulse-red {
+            0% { box-shadow: 0 0 10px rgba(246, 70, 93, 0.4); }
+            50% { box-shadow: 0 0 30px rgba(246, 70, 93, 0.8); }
+            100% { box-shadow: 0 0 10px rgba(246, 70, 93, 0.4); }
         }
 
-        .form-group label {
+        /* Circular OBI Meter SVG Animation */
+        .gauge-meter-path {
+            transition: stroke-dashoffset 0.2s ease-out, stroke 0.2s ease-out;
+        }
+
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #2A2E39; border-radius: 2px; }
+
+        .tab-content {
+            display: none;
+            height: calc(100vh - 130px);
+            overflow-y: auto;
+        }
+
+        .tab-content.active {
             display: block;
-            margin-bottom: 5px;
-            font-size: 12px;
-            color: #787b86;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 10px;
-            background-color: #131722;
-            border: 1px solid var(--border-color);
-            border-radius: 4px;
-            color: #ffffff;
-            box-sizing: border-box;
-        }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            background-color: var(--accent-blue);
-            color: white;
-            border: none;
-            border-radius: 4px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: background-color 0.2s;
-        }
-
-        button:hover {
-            background-color: #1e53e5;
-        }
-
-        /* Tables */
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 10px;
-        }
-
-        th, td {
-            text-align: left;
-            padding: 10px;
-            border-bottom: 1px solid var(--border-color);
-            font-size: 14px;
-        }
-
-        th {
-            color: #787b86;
-            font-weight: normal;
-        }
-
-        .status-msg {
-            margin-top: 10px;
-            font-size: 13px;
-            color: var(--accent-green);
         }
     </style>
 </head>
-<body>
+<body class="flex flex-col h-screen max-w-md mx-auto relative bg-mt5bg border-x border-mt5border shadow-2xl">
 
-    <div class="header">
-        <h1>OBI-BOT DMA Dashboard</h1>
-        <div>
-            User: <strong id="user-display">default_user</strong>
-        </div>
-    </div>
-
-    <div class="grid">
-        <!-- Live OBI & Price Card -->
-        <div class="card">
-            <h2>Live Order Book Imbalance (OBI)</h2>
-            <div class="value" id="obi-value">0.0000</div>
-
-            <div class="obi-meter-container">
-                <div class="obi-meter-bg">
-                    <div id="obi-meter-fill" class="obi-meter-fill"></div>
+    <!-- TOP HEADER -->
+    <header class="h-[65px] bg-mt5card border-b border-mt5border px-4 flex items-center justify-between z-20 shrink-0">
+        <!-- Symbol & Price -->
+        <div class="flex items-center space-x-3">
+            <div class="w-9 h-9 rounded-full bg-mt5bg border border-binanceGold/40 flex items-center justify-center p-1">
+                <i data-lucide="line-chart" class="w-5 h-5 text-binanceGold"></i>
+            </div>
+            <div>
+                <div class="flex items-center space-x-1.5">
+                    <span class="font-extrabold text-base tracking-wide text-white">BTCUSDT</span>
+                    <span id="market-mode-badge" class="text-[10px] font-bold px-1.5 py-0.5 rounded bg-binanceGold/20 text-binanceGold uppercase">DEMO</span>
                 </div>
-                <div class="obi-scale">
-                    <span>-1.0 (Sell)</span>
+                <div class="flex items-center space-x-2 text-xs">
+                    <span id="header-price" class="font-mono text-sm font-bold text-white">$67,240.50</span>
+                    <span id="header-spread" class="text-[10px] text-gray-400">Spr: $1.2</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Circular OBI Gauge Widget -->
+        <div class="flex items-center space-x-2">
+            <div class="relative w-11 h-11 flex items-center justify-center">
+                <svg class="w-11 h-11 transform -rotate-90" viewBox="0 0 36 36">
+                    <!-- Background Circle -->
+                    <path class="text-mt5border" stroke-width="3.5" stroke="currentColor" fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                    <!-- Dynamic Gauge Path -->
+                    <path id="gauge-path" class="gauge-meter-path" stroke-width="3.5" stroke-dasharray="100, 100" stroke-dashoffset="50"
+                          stroke="#0ECB81" fill="none"
+                          d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                </svg>
+                <div class="absolute inset-0 flex flex-col items-center justify-center text-center">
+                    <span id="gauge-obi-val" class="font-mono text-[10px] font-extrabold text-binanceGreen">+0.00</span>
+                </div>
+            </div>
+            <button id="tutorial-btn" class="p-1.5 rounded-lg bg-mt5bg border border-mt5border text-gray-400 hover:text-white">
+                <i data-lucide="help-circle" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN TAB CONTENTS CONTAINER -->
+    <main class="flex-1 relative overflow-hidden bg-mt5bg">
+
+        <!-- TAB 1: QUOTES (DEPTH OF MARKET) -->
+        <section id="tab-quotes" class="tab-content active p-3 space-y-3">
+            <!-- Best Bid / Best Ask Card -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 flex justify-between items-center">
+                <div class="text-center flex-1 border-r border-mt5border pr-2">
+                    <span class="text-[11px] text-gray-400 font-medium">BEST BID</span>
+                    <div id="quotes-best-bid" class="font-mono text-lg font-bold text-binanceGreen">$67,240.00</div>
+                    <span id="quotes-bid-vol" class="text-[10px] text-gray-400">Vol: 12.45 BTC</span>
+                </div>
+                <div class="text-center px-2 shrink-0">
+                    <span class="text-[10px] font-bold text-gray-500 uppercase block">SPREAD</span>
+                    <span id="quotes-spread-val" class="font-mono text-xs font-semibold text-binanceGold">$1.00</span>
+                </div>
+                <div class="text-center flex-1 border-l border-mt5border pl-2">
+                    <span class="text-[11px] text-gray-400 font-medium">BEST ASK</span>
+                    <div id="quotes-best-ask" class="font-mono text-lg font-bold text-binanceRed">$67,241.00</div>
+                    <span id="quotes-ask-vol" class="text-[10px] text-gray-400">Vol: 10.12 BTC</span>
+                </div>
+            </div>
+
+            <!-- OBI Live Gauge Bar -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-gray-300">Order Book Imbalance (OBI)</span>
+                    <span id="quotes-obi-badge" class="font-mono font-bold px-2 py-0.5 rounded bg-binanceGreen/20 text-binanceGreen">+0.0000 (+0.0%)</span>
+                </div>
+                <div class="h-3 bg-mt5bg rounded-full overflow-hidden flex relative border border-mt5border">
+                    <div id="obi-bar-left" class="h-full bg-binanceRed transition-all duration-200" style="width: 50%;"></div>
+                    <div id="obi-bar-right" class="h-full bg-binanceGreen transition-all duration-200" style="width: 50%;"></div>
+                    <div class="absolute inset-0 flex items-center justify-center">
+                        <div class="w-0.5 h-full bg-white/70"></div>
+                    </div>
+                </div>
+                <div class="flex justify-between text-[10px] text-gray-400 font-mono">
+                    <span>-100% (SELL PRESSURE)</span>
                     <span>0.0</span>
-                    <span>+1.0 (Buy)</span>
+                    <span>+100% (BUY PRESSURE)</span>
                 </div>
             </div>
 
-            <div class="price-row">
-                <div>Best Bid: <span id="best-bid" class="bid">0.00</span></div>
-                <div>Best Ask: <span id="best-ask" class="ask">0.00</span></div>
-            </div>
-        </div>
-
-        <!-- Ledger & Balance Card -->
-        <div class="card">
-            <h2>Account Ledger</h2>
-            <div class="value" id="account-balance">$0.00</div>
-            <div style="margin-top: 10px; font-size: 14px;">
-                <div>Reserved: <span id="reserved-balance">$0.00</span></div>
-                <div>Available: <span id="available-balance">$0.00</span></div>
-                <div>Total Realized PnL: <span id="total-pnl">$0.00</span></div>
-            </div>
-        </div>
-
-        <!-- MoMo Deposit Card -->
-        <div class="card">
-            <h2>MoMo Deposit (Uganda)</h2>
-            <form id="momo-form">
-                <div class="form-group">
-                    <label>Phone Number</label>
-                    <input type="text" id="momo-phone" value="256700000000" required>
+            <!-- MT5 Style Depth of Market (Orderbook) -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-2">
+                <div class="flex justify-between items-center text-xs text-gray-400 border-b border-mt5border pb-1 font-semibold">
+                    <span class="w-1/3">BID VOL</span>
+                    <span class="w-1/3 text-center">PRICE</span>
+                    <span class="w-1/3 text-right">ASK VOL</span>
                 </div>
-                <div class="form-group">
-                    <label>Amount (UGX / USD Sim)</label>
-                    <input type="number" id="momo-amount" value="500" min="1" step="any" required>
+                <div id="orderbook-depth-rows" class="space-y-1 font-mono text-xs">
+                    <!-- Dynamic Rows Rendered Here -->
+                    <div class="text-center text-gray-500 py-6">Loading Order Book...</div>
                 </div>
-                <button type="submit">Deposit via MoMo</button>
-                <div id="momo-status" class="status-msg"></div>
-            </form>
+            </div>
+        </section>
+
+        <!-- TAB 2: CHARTS -->
+        <section id="tab-charts" class="tab-content p-3 space-y-3">
+            <!-- Timeframe selector -->
+            <div class="flex items-center justify-between bg-mt5card border border-mt5border rounded-lg p-1.5 text-xs">
+                <div class="flex space-x-1">
+                    <button class="tf-btn px-3 py-1 rounded bg-binanceGold text-black font-bold" data-tf="1m">1M</button>
+                    <button class="tf-btn px-3 py-1 rounded text-gray-400 hover:text-white" data-tf="5m">5M</button>
+                    <button class="tf-btn px-3 py-1 rounded text-gray-400 hover:text-white" data-tf="15m">15M</button>
+                </div>
+                <div class="flex items-center space-x-1 text-binanceGold font-mono font-bold">
+                    <i data-lucide="activity" class="w-3.5 h-3.5"></i>
+                    <span>OBI Overlay On</span>
+                </div>
+            </div>
+
+            <!-- TradingView Lightweight Chart Container -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-2 relative h-[360px] flex flex-col">
+                <div id="tv-chart" class="w-full flex-1 rounded-lg"></div>
+            </div>
+
+            <!-- OBI Overlay Indicator Live Wave -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-1">
+                <div class="flex justify-between text-xs text-gray-400">
+                    <span class="font-bold text-white">OBI Oscillator (-1.0 to +1.0)</span>
+                    <span id="chart-obi-val" class="font-mono text-binanceGreen font-bold">+0.00</span>
+                </div>
+                <div id="obi-subchart" class="h-16 w-full"></div>
+            </div>
+        </section>
+
+        <!-- TAB 3: TRADE (BOT CONTROLLER) -->
+        <section id="tab-trade" class="tab-content p-3 space-y-3">
+            <!-- Big Power START/STOP Button -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-4 flex flex-col items-center justify-center space-y-3 relative overflow-hidden">
+                <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center space-x-2">
+                        <span id="bot-status-dot" class="w-3 h-3 rounded-full bg-red-500"></span>
+                        <span id="bot-status-text" class="text-sm font-extrabold tracking-wider uppercase text-red-500">BOT STOPPED</span>
+                    </div>
+                    <!-- Mode Toggle Button -->
+                    <div class="flex items-center bg-mt5bg border border-mt5border rounded-lg p-0.5">
+                        <button id="mode-demo-btn" class="px-2.5 py-1 text-xs font-bold rounded bg-binanceGold text-black">DEMO</button>
+                        <button id="mode-live-btn" class="px-2.5 py-1 text-xs font-bold rounded text-gray-400 hover:text-white">LIVE</button>
+                    </div>
+                </div>
+
+                <!-- Big Power Switch Button -->
+                <button id="bot-power-btn" class="w-28 h-28 rounded-full border-4 border-binanceGreen bg-binanceGreen/10 flex flex-col items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 group">
+                    <i data-lucide="power" class="w-10 h-10 text-binanceGreen group-hover:scale-110 transition-transform"></i>
+                    <span id="bot-power-label" class="text-xs font-black tracking-wider text-binanceGreen mt-1 uppercase">START BOT</span>
+                </button>
+
+                <!-- Live Metrics Summary -->
+                <div class="grid grid-cols-3 gap-2 w-full pt-2 border-t border-mt5border text-center font-mono text-xs">
+                    <div>
+                        <span class="text-[10px] text-gray-400 block font-sans">LIVE PNL</span>
+                        <span id="trade-pnl" class="font-bold text-white">$0.00</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-400 block font-sans">POSITIONS</span>
+                        <span id="trade-pos-count" class="font-bold text-binanceGold">0 Active</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-400 block font-sans">TRADES TODAY</span>
+                        <span id="trade-count" class="font-bold text-white">0</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bot Controls & Parameters -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-3">
+                <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider">Trading Parameters</h3>
+
+                <!-- Lot Size & Threshold -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Lot Size (BTC)</label>
+                        <input type="number" id="input-lot-size" value="0.10" step="0.01" min="0.01"
+                               class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-sm font-mono text-white focus:border-binanceGold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">OBI Trigger: <span id="thresh-val-text" class="text-binanceGold font-bold">35%</span></label>
+                        <input type="range" id="input-thresh-slider" min="10" max="80" value="35"
+                               class="w-full accent-binanceGold bg-mt5bg h-2 rounded-lg cursor-pointer">
+                    </div>
+                </div>
+
+                <!-- TP & SL Inputs -->
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Take Profit ($ USD)</label>
+                        <input type="number" id="input-tp" value="150" step="10" min="10"
+                               class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-sm font-mono text-binanceGreen focus:border-binanceGreen focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Stop Loss ($ USD)</label>
+                        <input type="number" id="input-sl" value="100" step="10" min="10"
+                               class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-sm font-mono text-binanceRed focus:border-binanceRed focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bot Real-Time Terminal Logs -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-gray-300 uppercase tracking-wider flex items-center space-x-1">
+                        <i data-lucide="terminal" class="w-3.5 h-3.5 text-binanceGold"></i>
+                        <span>Bot Execution Stream</span>
+                    </span>
+                    <span class="text-[10px] text-gray-500 font-mono">Live Logs</span>
+                </div>
+                <div id="bot-logs-box" class="h-36 bg-black/80 border border-mt5border rounded-lg p-2 font-mono text-[11px] overflow-y-auto space-y-1">
+                    <div class="text-gray-500">[00:00:00] Waiting for bot activation...</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: HISTORY -->
+        <section id="tab-history" class="tab-content p-3 space-y-3">
+            <!-- Balance & Equity Card -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 flex justify-between items-center">
+                <div>
+                    <span class="text-[11px] text-gray-400 block">ACCOUNT EQUITY</span>
+                    <div id="hist-equity-val" class="font-mono text-xl font-black text-white">$10,000.00</div>
+                </div>
+                <div class="text-right">
+                    <span class="text-[11px] text-gray-400 block">BALANCE</span>
+                    <div id="hist-balance-val" class="font-mono text-base font-bold text-binanceGold">$10,000.00</div>
+                </div>
+            </div>
+
+            <!-- Equity Curve Mini Chart -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-1">
+                <span class="text-xs font-bold text-gray-300 uppercase">Equity Growth Curve</span>
+                <div id="equity-chart-container" class="h-28 w-full"></div>
+            </div>
+
+            <!-- Closed Trades Table -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-2">
+                <div class="flex justify-between items-center text-xs">
+                    <span class="font-bold text-gray-300 uppercase">Trade History</span>
+                    <button id="export-csv-btn" class="text-[11px] text-binanceGold hover:underline flex items-center space-x-1">
+                        <i data-lucide="download" class="w-3 h-3"></i>
+                        <span>Export CSV</span>
+                    </button>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left font-mono text-xs">
+                        <thead>
+                            <tr class="text-gray-500 border-b border-mt5border text-[10px]">
+                                <th class="py-1">TYPE</th>
+                                <th class="py-1">ENTRY</th>
+                                <th class="py-1">EXIT</th>
+                                <th class="py-1 text-right">PNL</th>
+                            </tr>
+                        </thead>
+                        <tbody id="history-trades-body">
+                            <tr><td colspan="4" class="text-center text-gray-500 py-4 font-sans">No trades executed yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Reset Demo Button -->
+            <button id="reset-demo-btn" class="w-full py-2.5 rounded-xl border border-red-500/30 text-red-400 hover:bg-red-500/10 font-bold text-xs flex items-center justify-center space-x-2">
+                <i data-lucide="rotate-ccw" class="w-4 h-4"></i>
+                <span>RESET DEMO ACCOUNT ($10,000)</span>
+            </button>
+        </section>
+
+        <!-- TAB 5: SETTINGS -->
+        <section id="tab-settings" class="tab-content p-3 space-y-3">
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-3">
+                <h3 class="text-xs font-bold text-binanceGold uppercase tracking-wider flex items-center space-x-1">
+                    <i data-lucide="key" class="w-4 h-4"></i>
+                    <span>Binance Testnet Credentials (LIVE)</span>
+                </h3>
+                <p class="text-[11px] text-gray-400">Required when running in LIVE mode to place testnet orders.</p>
+
+                <div class="space-y-2">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Binance Testnet API Key</label>
+                        <input type="password" id="input-api-key" placeholder="Enter API Key"
+                               class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:border-binanceGold focus:outline-none">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-1">Binance Testnet Secret Key</label>
+                        <input type="password" id="input-api-secret" placeholder="Enter Secret Key"
+                               class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-xs font-mono text-white focus:border-binanceGold focus:outline-none">
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-3">
+                <h3 class="text-xs font-bold text-gray-300 uppercase tracking-wider">App & Sound Settings</h3>
+                <div class="flex items-center justify-between">
+                    <div>
+                        <span class="text-xs font-semibold text-white block">Sound Notifications</span>
+                        <span class="text-[10px] text-gray-400">Audio feedback on trade signals</span>
+                    </div>
+                    <input type="checkbox" id="sound-toggle" checked class="accent-binanceGold w-4 h-4">
+                </div>
+                <div class="flex items-center justify-between border-t border-mt5border pt-2">
+                    <div>
+                        <span class="text-xs font-semibold text-white block">Haptic Vibration</span>
+                        <span class="text-[10px] text-gray-400">Simulate MT5 haptic touch</span>
+                    </div>
+                    <input type="checkbox" id="haptic-toggle" checked class="accent-binanceGold w-4 h-4">
+                </div>
+            </div>
+
+            <!-- MoMo Deposit Section (Uganda DMA) -->
+            <div class="bg-mt5card border border-mt5border rounded-xl p-3 space-y-2">
+                <h3 class="text-xs font-bold text-binanceGreen uppercase tracking-wider flex items-center space-x-1">
+                    <i data-lucide="smartphone" class="w-4 h-4"></i>
+                    <span>MoMo Direct Deposit</span>
+                </h3>
+                <form id="momo-form" class="space-y-2">
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-0.5">MoMo Phone Number</label>
+                        <input type="text" id="momo-phone" value="256700000000" class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-xs font-mono text-white">
+                    </div>
+                    <div>
+                        <label class="text-[11px] text-gray-400 block mb-0.5">Amount (USD Sim)</label>
+                        <input type="number" id="momo-amount" value="500" min="10" class="w-full bg-mt5bg border border-mt5border rounded-lg px-2.5 py-1.5 text-xs font-mono text-white">
+                    </div>
+                    <button type="submit" class="w-full py-2 bg-binanceGreen text-black font-extrabold rounded-lg text-xs hover:brightness-110">
+                        DEPOSIT VIA MOMO
+                    </button>
+                    <div id="momo-msg" class="text-[11px] text-binanceGreen text-center hidden"></div>
+                </form>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- BOTTOM MT5 NAVIGATION BAR -->
+    <nav class="h-[65px] bg-mt5card border-t border-mt5border grid grid-cols-5 z-20 shrink-0">
+        <button class="nav-tab active flex flex-col items-center justify-center text-binanceGold" data-tab="quotes">
+            <i data-lucide="list" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Quotes</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center text-gray-400 hover:text-white" data-tab="charts">
+            <i data-lucide="candlestick-chart" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Charts</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center text-gray-400 hover:text-white relative" data-tab="trade">
+            <i data-lucide="play-circle" class="w-6 h-6"></i>
+            <span class="text-[10px] font-bold mt-0.5">Trade</span>
+            <span id="nav-bot-badge" class="absolute top-1.5 right-3 w-2 h-2 rounded-full bg-red-500"></span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center text-gray-400 hover:text-white" data-tab="history">
+            <i data-lucide="history" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">History</span>
+        </button>
+        <button class="nav-tab flex flex-col items-center justify-center text-gray-400 hover:text-white" data-tab="settings">
+            <i data-lucide="sliders" class="w-5 h-5"></i>
+            <span class="text-[10px] font-bold mt-1">Settings</span>
+        </button>
+    </nav>
+
+    <!-- ONBOARDING TUTORIAL MODAL -->
+    <div id="tutorial-modal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-mt5card border border-mt5border rounded-2xl max-w-sm w-full p-5 space-y-4 text-center">
+            <div class="w-12 h-12 rounded-full bg-binanceGold/20 border border-binanceGold flex items-center justify-center mx-auto text-binanceGold">
+                <i data-lucide="zap" class="w-6 h-6"></i>
+            </div>
+            <h2 class="text-lg font-black text-white">Welcome to OBI-BOT Pro</h2>
+            <p class="text-xs text-gray-300 leading-relaxed text-left">
+                <strong>1. Order Book Imbalance (OBI):</strong> Measures institutional buy vs sell pressure on Binance in real-time.<br><br>
+                <strong>2. Automated Signal:</strong> When OBI exceeds your threshold (e.g., +35%), the bot automatically opens BUY/SELL trades.<br><br>
+                <strong>3. Manual Control:</strong> Use the <strong>Trade Tab</strong> power button to Start/Stop the bot anytime.
+            </p>
+            <button id="close-tutorial-btn" class="w-full py-2.5 bg-binanceGold text-black font-extrabold rounded-xl text-sm">
+                GOT IT, LET'S TRADE!
+            </button>
         </div>
     </div>
 
-    <!-- Live Chart -->
-    <div class="card" style="margin-bottom: 20px;">
-        <h2>OBI Stream Chart (BTC/USDT)</h2>
-        <div class="chart-container">
-            <canvas id="obiChart"></canvas>
-        </div>
-    </div>
-
-    <!-- Active Orders & Trade History -->
-    <div class="grid">
-        <div class="card">
-            <h2>Active Order</h2>
-            <table id="active-order-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Side</th>
-                        <th>Price</th>
-                        <th>Amount</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td colspan="5" style="text-align: center; color: #787b86;">No active order</td></tr>
-                </tbody>
-            </table>
-        </div>
-
-        <div class="card">
-            <h2>Trade History</h2>
-            <table id="trades-table">
-                <thead>
-                    <tr>
-                        <th>ID</th>
-                        <th>Side</th>
-                        <th>Price</th>
-                        <th>PnL</th>
-                        <th>Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr><td colspan="5" style="text-align: center; color: #787b86;">No trade history</td></tr>
-                </tbody>
-            </table>
-        </div>
-    </div>
-
+    <!-- JAVASCRIPT APP CONTROLLER -->
     <script>
-        const userId = "default_user";
+        // Initialize Lucide icons
+        lucide.createIcons();
 
-        // Chart initialization
-        const ctx = document.getElementById('obiChart').getContext('2d');
-        const maxPoints = 50;
-        const obiChart = new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: [],
-                datasets: [{
-                    label: 'OBI (Imbalance)',
-                    data: [],
-                    borderColor: '#2962ff',
-                    borderWidth: 2,
-                    fill: false,
-                    tension: 0.1,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    x: {
-                        display: false
-                    },
-                    y: {
-                        min: -1.0,
-                        max: 1.0,
-                        grid: {
-                            color: '#2a2e39'
-                        },
-                        ticks: {
-                            color: '#787b86'
-                        }
+        // Audio Context Synthesizer for sound notifications
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            if (!document.getElementById('sound-toggle').checked) return;
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+
+                if (type === 'buy') {
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime); // D5
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.1); // A5
+                } else if (type === 'sell') {
+                    osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+                    osc.frequency.setValueAtTime(587.33, audioCtx.currentTime + 0.1); // D5
+                } else {
+                    osc.frequency.setValueAtTime(440, audioCtx.currentTime);
+                }
+
+                gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.25);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.25);
+            } catch (e) {}
+        }
+
+        function triggerHaptic() {
+            if (document.getElementById('haptic-toggle').checked && navigator.vibrate) {
+                navigator.vibrate(30);
+            }
+        }
+
+        // Global State Variables
+        let currentTab = 'quotes';
+        let isBotRunning = false;
+        let currentMode = 'demo';
+        let ws = null;
+        let tvChartSeries = null;
+        let obiSeries = null;
+        let equitySeries = null;
+        let lastProcessedLogCount = 0;
+
+        // Navigation Tab Switcher
+        document.querySelectorAll('.nav-tab').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const targetTab = btn.getAttribute('data-tab');
+                triggerHaptic();
+
+                document.querySelectorAll('.nav-tab').forEach(b => {
+                    b.classList.remove('active', 'text-binanceGold');
+                    b.classList.add('text-gray-400');
+                });
+                btn.classList.add('active', 'text-binanceGold');
+                btn.classList.remove('text-gray-400');
+
+                document.querySelectorAll('.tab-content').forEach(tc => tc.classList.remove('active'));
+                document.getElementById(`tab-${targetTab}`).classList.add('active');
+                currentTab = targetTab;
+            });
+        });
+
+        // Initialize Lightweight Charts
+        function initCharts() {
+            const chartContainer = document.getElementById('tv-chart');
+            if (!chartContainer) return;
+
+            const chart = LightweightCharts.createChart(chartContainer, {
+                layout: { backgroundColor: '#1A1D24', textColor: '#A0A5B5' },
+                grid: { vertLines: { color: '#2A2E39' }, horzLines: { color: '#2A2E39' } },
+                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
+                rightPriceScale: { borderColor: '#2A2E39' },
+                timeScale: { borderColor: '#2A2E39', timeVisible: true },
+            });
+
+            tvChartSeries = chart.addCandlestickSeries({
+                upColor: '#0ECB81', downColor: '#F6465D',
+                borderUpColor: '#0ECB81', borderDownColor: '#F6465D',
+                wickUpColor: '#0ECB81', wickDownColor: '#F6465D',
+            });
+
+            // Seed chart data
+            const now = Math.floor(Date.now() / 1000);
+            let basePrice = 67200;
+            const candles = [];
+            for (let i = 50; i >= 0; i--) {
+                const t = now - (i * 60);
+                const open = basePrice + (Math.random() - 0.5) * 40;
+                const high = open + Math.random() * 30;
+                const low = open - Math.random() * 30;
+                const close = (high + low) / 2;
+                candles.push({ time: t, open, high, low, close });
+                basePrice = close;
+            }
+            tvChartSeries.setData(candles);
+
+            // OBI Subchart Line
+            const obiContainer = document.getElementById('obi-subchart');
+            if (obiContainer) {
+                const obiChart = LightweightCharts.createChart(obiContainer, {
+                    layout: { backgroundColor: '#1A1D24', textColor: '#A0A5B5' },
+                    grid: { vertLines: { color: '#2A2E39' }, horzLines: { color: '#2A2E39' } },
+                    timeScale: { visible: false },
+                    rightPriceScale: { scaleMargins: { top: 0.1, bottom: 0.1 } }
+                });
+                obiSeries = obiChart.addLineSeries({ color: '#FCD535', lineWidth: 2 });
+            }
+
+            // Equity Curve Line Chart
+            const eqContainer = document.getElementById('equity-chart-container');
+            if (eqContainer) {
+                const eqChart = LightweightCharts.createChart(eqContainer, {
+                    layout: { backgroundColor: '#1A1D24', textColor: '#A0A5B5' },
+                    grid: { vertLines: { color: '#2A2E39' }, horzLines: { color: '#2A2E39' } },
+                    timeScale: { visible: false }
+                });
+                equitySeries = eqChart.addLineSeries({ color: '#0ECB81', lineWidth: 2 });
+                equitySeries.setData([
+                    { time: now - 300, value: 10000 },
+                    { time: now, value: 10000 }
+                ]);
+            }
+        }
+
+        // WebSocket Connection Handler
+        function connectWebSocket() {
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            ws = new WebSocket(`${protocol}//${window.location.host}/ws`);
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+                    if (data.market) updateMarketUI(data.market);
+                    if (data.bot) updateBotUI(data.bot);
+                } catch (e) {
+                    console.error("WS Parse error:", e);
+                }
+            };
+
+            ws.onclose = () => {
+                setTimeout(connectWebSocket, 1000);
+            };
+        }
+
+        // Render Live Order Book & Quotes UI
+        function updateMarketUI(m) {
+            const price = m.price || 67000;
+            const obi = m.obi || 0.0;
+            const obiPct = m.obi_percent || 0.0;
+            const bid = m.best_bid || 0.0;
+            const ask = m.best_ask || 0.0;
+            const spread = m.spread || 0.0;
+
+            // Header Price & Gauge
+            document.getElementById('header-price').innerText = `$${price.toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('header-spread').innerText = `Spr: $${spread.toFixed(2)}`;
+
+            // Gauge SVG Update
+            const gaugeVal = document.getElementById('gauge-obi-val');
+            gaugeVal.innerText = (obi >= 0 ? '+' : '') + obi.toFixed(2);
+            gaugeVal.className = `font-mono text-[10px] font-extrabold ${obi >= 0 ? 'text-binanceGreen' : 'text-binanceRed'}`;
+
+            const gaugePath = document.getElementById('gauge-path');
+            const offset = 50 - (obi * 50); // Map -1..+1 to 100..0
+            gaugePath.setAttribute('stroke-dashoffset', offset);
+            gaugePath.setAttribute('stroke', obi >= 0 ? '#0ECB81' : '#F6465D');
+
+            // Quotes Tab Updates
+            document.getElementById('quotes-best-bid').innerText = `$${bid.toFixed(2)}`;
+            document.getElementById('quotes-best-ask').innerText = `$${ask.toFixed(2)}`;
+            document.getElementById('quotes-spread-val').innerText = `$${spread.toFixed(2)}`;
+
+            const obiBadge = document.getElementById('quotes-obi-badge');
+            obiBadge.innerText = `${obi >= 0 ? '+' : ''}${obi.toFixed(4)} (${obiPct >= 0 ? '+' : ''}${obiPct.toFixed(1)}%)`;
+            obiBadge.className = `font-mono font-bold px-2 py-0.5 rounded ${obi >= 0 ? 'bg-binanceGreen/20 text-binanceGreen' : 'bg-binanceRed/20 text-binanceRed'}`;
+
+            // OBI Bar fills
+            const rightPct = Math.max(0, Math.min(100, ((obi + 1) / 2) * 100));
+            document.getElementById('obi-bar-left').style.width = `${100 - rightPct}%`;
+            document.getElementById('obi-bar-right').style.width = `${rightPct}%`;
+
+            // Chart overlay update
+            document.getElementById('chart-obi-val').innerText = (obi >= 0 ? '+' : '') + obi.toFixed(4);
+            document.getElementById('chart-obi-val').className = `font-mono font-bold ${obi >= 0 ? 'text-binanceGreen' : 'text-binanceRed'}`;
+
+            if (obiSeries) {
+                obiSeries.update({ time: Math.floor(Date.now() / 1000), value: obi });
+            }
+
+            // Orderbook Depth Rows Rendering
+            const bids = m.bids || [];
+            const asks = m.asks || [];
+            const maxVol = Math.max(
+                ...bids.map(b => b[1]),
+                ...asks.map(a => a[1]),
+                1.0
+            );
+
+            let rowsHTML = '';
+            const depthLength = Math.max(bids.length, asks.length, 5);
+            for (let i = 0; i < depthLength; i++) {
+                const b = bids[i] || [0, 0];
+                const a = asks[i] || [0, 0];
+                const bVolPct = (b[1] / maxVol) * 100;
+                const aVolPct = (a[1] / maxVol) * 100;
+
+                rowsHTML += `
+                    <div class="flex justify-between items-center py-0.5 relative text-[11px]">
+                        <!-- Bid Vol Bar -->
+                        <div class="w-1/3 relative text-left pl-1">
+                            <div class="absolute inset-y-0 left-0 bg-binanceGreen/20 rounded-r" style="width: ${bVolPct}%"></div>
+                            <span class="relative text-binanceGreen font-semibold">${b[1] ? b[1].toFixed(3) : ''}</span>
+                        </div>
+                        <!-- Prices -->
+                        <div class="w-1/3 flex justify-between px-1 text-center font-bold">
+                            <span class="text-binanceGreen w-1/2">${b[0] ? b[0].toFixed(2) : ''}</span>
+                            <span class="text-binanceRed w-1/2">${a[0] ? a[0].toFixed(2) : ''}</span>
+                        </div>
+                        <!-- Ask Vol Bar -->
+                        <div class="w-1/3 relative text-right pr-1">
+                            <div class="absolute inset-y-0 right-0 bg-binanceRed/20 rounded-l" style="width: ${aVolPct}%"></div>
+                            <span class="relative text-binanceRed font-semibold">${a[1] ? a[1].toFixed(3) : ''}</span>
+                        </div>
+                    </div>
+                `;
+            }
+            document.getElementById('orderbook-depth-rows').innerHTML = rowsHTML;
+        }
+
+        // Render Bot & Account UI
+        function updateBotUI(b) {
+            isBotRunning = b.is_running;
+
+            // Power Button Styling
+            const powerBtn = document.getElementById('bot-power-btn');
+            const powerLabel = document.getElementById('bot-power-label');
+            const statusDot = document.getElementById('bot-status-dot');
+            const statusText = document.getElementById('bot-status-text');
+            const navBadge = document.getElementById('nav-bot-badge');
+
+            if (isBotRunning) {
+                powerBtn.className = "w-28 h-28 rounded-full border-4 border-binanceRed bg-binanceRed/10 flex flex-col items-center justify-center pulse-glow-red transition-all duration-300 hover:scale-105 active:scale-95 group";
+                powerBtn.querySelector('i').className = "w-10 h-10 text-binanceRed group-hover:scale-110 transition-transform";
+                powerLabel.innerText = "STOP BOT";
+                powerLabel.className = "text-xs font-black tracking-wider text-binanceRed mt-1 uppercase";
+
+                statusDot.className = "w-3 h-3 rounded-full bg-binanceGreen animate-ping";
+                statusText.innerText = "BOT RUNNING";
+                statusText.className = "text-sm font-extrabold tracking-wider uppercase text-binanceGreen";
+                navBadge.className = "absolute top-1.5 right-3 w-2 h-2 rounded-full bg-binanceGreen animate-pulse";
+            } else {
+                powerBtn.className = "w-28 h-28 rounded-full border-4 border-binanceGreen bg-binanceGreen/10 flex flex-col items-center justify-center transition-all duration-300 hover:scale-105 active:scale-95 group";
+                powerBtn.querySelector('i').className = "w-10 h-10 text-binanceGreen group-hover:scale-110 transition-transform";
+                powerLabel.innerText = "START BOT";
+                powerLabel.className = "text-xs font-black tracking-wider text-binanceGreen mt-1 uppercase";
+
+                statusDot.className = "w-3 h-3 rounded-full bg-red-500";
+                statusText.innerText = "BOT STOPPED";
+                statusText.className = "text-sm font-extrabold tracking-wider uppercase text-red-500";
+                navBadge.className = "absolute top-1.5 right-3 w-2 h-2 rounded-full bg-red-500";
+            }
+
+            // Live PnL & Positions
+            const pnl = b.unrealized_pnl || 0.0;
+            const pnlEl = document.getElementById('trade-pnl');
+            pnlEl.innerText = `${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)}`;
+            pnlEl.className = `font-bold ${pnl >= 0 ? 'text-binanceGreen' : 'text-binanceRed'}`;
+
+            document.getElementById('trade-pos-count').innerText = `${b.open_positions_count} Active`;
+            document.getElementById('trade-count').innerText = b.today_trades_count || 0;
+
+            // History Tab Summary
+            document.getElementById('hist-equity-val').innerText = `$${(b.equity || 10000).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+            document.getElementById('hist-balance-val').innerText = `$${(b.balance || 10000).toLocaleString('en-US', {minimumFractionDigits: 2})}`;
+
+            // Update Logs Box
+            if (b.recent_logs && b.recent_logs.length > 0) {
+                const logsBox = document.getElementById('bot-logs-box');
+                logsBox.innerHTML = b.recent_logs.map(l => {
+                    let colorClass = "text-gray-300";
+                    if (l.level === 'SUCCESS' || l.level === 'BUY') colorClass = "text-binanceGreen font-bold";
+                    if (l.level === 'ERROR' || l.level === 'SELL') colorClass = "text-binanceRed font-bold";
+                    if (l.level === 'WARNING') colorClass = "text-binanceGold font-bold";
+                    return `<div class="${colorClass}">[${l.time}] [${l.category}] ${l.message}</div>`;
+                }).join('');
+                logsBox.scrollTop = logsBox.scrollHeight;
+            }
+        }
+
+        // Bot Start / Stop API Handlers
+        document.getElementById('bot-power-btn').addEventListener('click', async () => {
+            triggerHaptic();
+            if (isBotRunning) {
+                // Stop Bot
+                await fetch('/api/bot/stop', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ close_positions: true })
+                });
+            } else {
+                // Check if Live Mode warning confirmation is needed
+                if (currentMode === 'live') {
+                    if (!confirm("⚠️ WARNING: You are about to start OBI-BOT in LIVE mode on Binance Testnet. Continue?")) {
+                        return;
                     }
-                },
-                plugins: {
-                    legend: {
-                        labels: {
-                            color: '#d1d4dc'
-                        }
-                    }
+                }
+
+                const lotSize = parseFloat(document.getElementById('input-lot-size').value) || 0.1;
+                const thresh = (parseFloat(document.getElementById('input-thresh-slider').value) || 35) / 100.0;
+                const tp = parseFloat(document.getElementById('input-tp').value) || 150;
+                const sl = parseFloat(document.getElementById('input-sl').value) || 100;
+                const apiKey = document.getElementById('input-api-key').value;
+                const apiSecret = document.getElementById('input-api-secret').value;
+
+                const res = await fetch('/api/bot/start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        mode: currentMode,
+                        lot_size: lotSize,
+                        threshold: thresh,
+                        tp_usd: tp,
+                        sl_usd: sl,
+                        api_key: apiKey,
+                        api_secret: apiSecret
+                    })
+                });
+
+                if (!res.ok) {
+                    const err = await res.json();
+                    alert(`Error starting bot: ${err.detail || 'Failed'}`);
+                } else {
+                    playSound('buy');
                 }
             }
         });
 
-        // Update OBI live metrics every 300ms
-        async function fetchLiveObi() {
-            try {
-                const res = await fetch('/live/obi');
-                if (!res.ok) return;
-                const data = await res.json();
+        // Mode Toggles (DEMO / LIVE)
+        document.getElementById('mode-demo-btn').addEventListener('click', () => {
+            currentMode = 'demo';
+            triggerHaptic();
+            document.getElementById('mode-demo-btn').className = "px-2.5 py-1 text-xs font-bold rounded bg-binanceGold text-black";
+            document.getElementById('mode-live-btn').className = "px-2.5 py-1 text-xs font-bold rounded text-gray-400 hover:text-white";
+            document.getElementById('market-mode-badge').innerText = "DEMO";
+        });
 
-                const I = data.I || 0;
-                document.getElementById('obi-value').innerText = (I >= 0 ? '+' : '') + I.toFixed(4);
-                document.getElementById('best-bid').innerText = data.bid.toFixed(2);
-                document.getElementById('best-ask').innerText = data.ask.toFixed(2);
+        document.getElementById('mode-live-btn').addEventListener('click', () => {
+            currentMode = 'live';
+            triggerHaptic();
+            document.getElementById('mode-live-btn').className = "px-2.5 py-1 text-xs font-bold rounded bg-binanceGold text-black";
+            document.getElementById('mode-demo-btn').className = "px-2.5 py-1 text-xs font-bold rounded text-gray-400 hover:text-white";
+            document.getElementById('market-mode-badge').innerText = "LIVE TESTNET";
+        });
 
-                // Update OBI Meter Fill
-                const meterFill = document.getElementById('obi-meter-fill');
-                const fillPercent = ((I + 1) / 2) * 100;
-                meterFill.style.width = fillPercent + '%';
-                meterFill.style.backgroundColor = I >= 0 ? '#089981' : '#f23645';
+        // Threshold Slider Text Update
+        document.getElementById('input-thresh-slider').addEventListener('input', (e) => {
+            document.getElementById('thresh-val-text').innerText = `${e.target.value}%`;
+        });
 
-                // Chart update
-                const timeStr = new Date(data.timestamp).toLocaleTimeString();
-                if (obiChart.data.labels.length >= maxPoints) {
-                    obiChart.data.labels.shift();
-                    obiChart.data.datasets[0].data.shift();
-                }
-                obiChart.data.labels.push(timeStr);
-                obiChart.data.datasets[0].data.push(I);
-                obiChart.update();
-            } catch (err) {
-                console.error("Error fetching live obi:", err);
+        // Reset Demo Account
+        document.getElementById('reset-demo-btn').addEventListener('click', async () => {
+            if (confirm("Are you sure you want to reset your Demo Account balance back to $10,000?")) {
+                await fetch('/api/bot/reset_demo', { method: 'POST' });
+                triggerHaptic();
+                alert("Demo Account reset successfully!");
             }
-        }
+        });
 
-        // Update Dashboard Data every 1s
-        async function fetchDashboardData() {
-            try {
-                const res = await fetch(`/dashboard/data/${userId}`);
-                if (!res.ok) return;
-                const data = await res.json();
-
-                document.getElementById('account-balance').innerText = '$' + data.balance.toFixed(2);
-                document.getElementById('reserved-balance').innerText = '$' + data.reserved.toFixed(2);
-                document.getElementById('available-balance').innerText = '$' + data.available.toFixed(2);
-                document.getElementById('total-pnl').innerText = '$' + data.pnl_total.toFixed(2);
-
-                // Active order table
-                const activeBody = document.querySelector('#active-order-table tbody');
-                if (data.active_order) {
-                    const ord = data.active_order;
-                    const sideColor = ord.side === 'BUY' ? '#089981' : '#f23645';
-                    activeBody.innerHTML = `
-                        <tr>
-                            <td>${ord.id}</td>
-                            <td style="color: ${sideColor}; font-weight: bold;">${ord.side}</td>
-                            <td>$${ord.price.toFixed(2)}</td>
-                            <td>$${ord.amount.toFixed(2)}</td>
-                            <td>${ord.status}</td>
-                        </tr>
-                    `;
-                } else {
-                    activeBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #787b86;">No active order</td></tr>';
-                }
-
-                // Trades table
-                const tradesBody = document.querySelector('#trades-table tbody');
-                if (data.trades && data.trades.length > 0) {
-                    tradesBody.innerHTML = data.trades.map(t => {
-                        const sideColor = t.side === 'BUY' ? '#089981' : '#f23645';
-                        const pnlColor = t.pnl >= 0 ? '#089981' : '#f23645';
-                        return `
-                            <tr>
-                                <td>${t.id}</td>
-                                <td style="color: ${sideColor}; font-weight: bold;">${t.side}</td>
-                                <td>$${t.price.toFixed(2)}</td>
-                                <td style="color: ${pnlColor}; font-weight: bold;">+$${t.pnl.toFixed(2)}</td>
-                                <td>${t.status}</td>
-                            </tr>
-                        `;
-                    }).join('');
-                } else {
-                    tradesBody.innerHTML = '<tr><td colspan="5" style="text-align: center; color: #787b86;">No trade history</td></tr>';
-                }
-            } catch (err) {
-                console.error("Error fetching dashboard data:", err);
-            }
-        }
-
-        // Handle MoMo deposit form submission
+        // MoMo Deposit Handler
         document.getElementById('momo-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             const phone = document.getElementById('momo-phone').value;
             const amount = parseFloat(document.getElementById('momo-amount').value);
-            const statusEl = document.getElementById('momo-status');
+            const msgEl = document.getElementById('momo-msg');
 
-            statusEl.innerText = "Initiating MoMo deposit request...";
-            statusEl.style.color = "#2962ff";
+            msgEl.innerText = "Processing MoMo deposit request...";
+            msgEl.classList.remove('hidden');
 
-            try {
-                const res = await fetch('/momo/deposit', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ user_id: userId, amount: amount, phone: phone })
-                });
-                const data = await res.json();
-                statusEl.innerText = `Request Sent! TxID: ${data.transaction_id} (Status: ${data.status}). Deposit confirming in 2s...`;
-                statusEl.style.color = "#089981";
-
-                setTimeout(() => {
-                    fetchDashboardData();
-                }, 2500);
-            } catch (err) {
-                statusEl.innerText = "MoMo deposit request failed";
-                statusEl.style.color = "#f23645";
-            }
+            const res = await fetch('/momo/deposit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ user_id: 'default_user', amount: amount, phone: phone })
+            });
+            const data = await res.json();
+            msgEl.innerText = `✅ Success! TxID: ${data.transaction_id}. Balance credited.`;
+            triggerHaptic();
         });
 
-        // Intervals
-        setInterval(fetchLiveObi, 300);
-        setInterval(fetchDashboardData, 1000);
-        fetchLiveObi();
-        fetchDashboardData();
+        // Export History CSV
+        document.getElementById('export-csv-btn').addEventListener('click', async () => {
+            const res = await fetch('/api/bot/status');
+            const data = await res.json();
+            const trades = data.trades_history || [];
+
+            let csvContent = "data:text/csv;charset=utf-8,ID,Side,Entry,Close,Amount,PnL,Reason,ClosedAt\n";
+            trades.forEach(t => {
+                csvContent += `${t.id},${t.side},${t.entry_price},${t.close_price},${t.amount},${t.pnl},${t.reason},${t.closed_at}\n`;
+            });
+
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", `obi_bot_trades_${Date.now()}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+
+        // Tutorial Modal
+        document.getElementById('tutorial-btn').addEventListener('click', () => {
+            document.getElementById('tutorial-modal').classList.remove('hidden');
+        });
+        document.getElementById('close-tutorial-btn').addEventListener('click', () => {
+            document.getElementById('tutorial-modal').classList.add('hidden');
+        });
+
+        // Initialize App
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            connectWebSocket();
+        });
     </script>
 </body>
 </html>
